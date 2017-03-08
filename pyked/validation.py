@@ -49,6 +49,14 @@ property_units = {'temperature': 'kelvin',
                   'time': 'second',
                   }
 
+# Disable validation if requested
+_skip_validation = False
+def disable_validation():
+    """Disable validation functions.
+    """
+    warn('validation disabled.')
+    _skip_validation = True
+
 
 def compare_name(given_name, family_name, question_name):
     """Compares a name in question to a specified name separated into given and family.
@@ -124,6 +132,10 @@ class OurValidator(Validator):
             field (str): property associated with units in question.
             value (dict): dictionary of values from file associated with this property.
         """
+        # Skip validation if requested
+        if _skip_validation:
+            return True
+
         quantity = 1.0 * units(value['units'])
         try:
             quantity.to(property_units[field])
@@ -140,6 +152,10 @@ class OurValidator(Validator):
             field (str): property associated with quantity in question.
             value (str): string of the value of the quantity
         """
+        # Skip validation if requested
+        if _skip_validation:
+            return True
+
         quantity = Q_(value)
         low_lim = 0.0 * units(property_units[field])
 
@@ -164,6 +180,10 @@ class OurValidator(Validator):
             field (str): 'reference'
             value (dict): dictionary of reference metadata.
         """
+        # Skip validation if requested
+        if _skip_validation:
+            return True
+
         if isvalid_reference and 'doi' in value:
             try:
                 ref = habanero.Crossref().works(ids=value['doi'])['message']
@@ -249,6 +269,10 @@ class OurValidator(Validator):
             field (str): 'author'
             value (dict): dictionary of author metadata.
         """
+        # Skip validation if requested
+        if _skip_validation:
+            return True
+
         if isvalid_orcid and 'ORCID' in value:
             try:
                 res = orcid_api.search_public('orcid:' + value['ORCID'])
