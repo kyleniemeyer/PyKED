@@ -49,13 +49,24 @@ property_units = {'temperature': 'kelvin',
                   'time': 'second',
                   }
 
-# Disable validation if requested
-_skip_validation = False
+
+# Skip validation if True
+_mod_skip_validation = False
+
 def disable_validation():
     """Disable validation functions.
     """
     warn('validation disabled.')
-    _skip_validation = True
+    global _mod_skip_validation
+    _mod_skip_validation = True
+
+
+def enable_validation():
+    """Enable validation functions.
+    """
+    warn('validation enabled.')
+    global _mod_skip_validation
+    _mod_skip_validation = False
 
 
 def compare_name(given_name, family_name, question_name):
@@ -124,6 +135,24 @@ def compare_name(given_name, family_name, question_name):
 class OurValidator(Validator):
     """Custom validator with rules for Quantities and references.
     """
+    def __init__(self, *args, **kwargs):
+        """Initialization, mostly inherited from base class.
+        """
+        self._skip_validation = _mod_skip_validation
+        super().__init__(*args, **kwargs)
+
+    def disable_validation(self):
+        """Disable validation functions.
+        """
+        warn('validation disabled.')
+        self._skip_validation = True
+
+    def enable_validation(self):
+        """Enable validation functions.
+        """
+        warn('validation enabled.')
+        self._skip_validation = False
+
     def _validate_isvalid_unit(self, isvalid_unit, field, value):
         """Checks for appropriate units using Pint unit registry.
 
@@ -132,17 +161,14 @@ class OurValidator(Validator):
             field (str): property associated with units in question.
             value (dict): dictionary of values from file associated with this property.
         """
-        # Skip validation if requested
-        if _skip_validation:
-            return True
-
-        quantity = 1.0 * units(value['units'])
-        try:
-            quantity.to(property_units[field])
-        except pint.DimensionalityError:
-            self._error(field, 'incompatible units; should be consistent '
-                        'with ' + property_units[field]
-                        )
+        if isvalid_unit and not self._skip_validation:
+            quantity = 1.0 * units(value['units'])
+            try:
+                quantity.to(property_units[field])
+            except pint.DimensionalityError:
+                self._error(field, 'incompatible units; should be consistent '
+                            'with ' + property_units[field]
+                            )
 
     def _validate_isvalid_quantity(self, isvalid_quantity, field, value):
         """Checks for valid given value and appropriate units.
@@ -152,22 +178,19 @@ class OurValidator(Validator):
             field (str): property associated with quantity in question.
             value (str): string of the value of the quantity
         """
-        # Skip validation if requested
-        if _skip_validation:
-            return True
+        if isvalid_quantity and not self._skip_validation:
+            quantity = Q_(value)
+            low_lim = 0.0 * units(property_units[field])
 
-        quantity = Q_(value)
-        low_lim = 0.0 * units(property_units[field])
-
-        try:
-            if quantity <= low_lim:
-                self._error(
-                    field, 'value must be greater than 0.0 {}'.format(property_units[field]),
-                )
-        except pint.DimensionalityError:
-            self._error(field, 'incompatible units; should be consistent '
-                        'with ' + property_units[field]
-                        )
+            try:
+                if quantity <= low_lim:
+                    self._error(
+                        field, 'value must be greater than 0.0 {}'.format(property_units[field]),
+                    )
+            except pint.DimensionalityError:
+                self._error(field, 'incompatible units; should be consistent '
+                            'with ' + property_units[field]
+                            )
 
     def _validate_isvalid_reference(self, isvalid_reference, field, value):
         """Checks valid reference metadata using DOI (if present).
@@ -180,11 +203,7 @@ class OurValidator(Validator):
             field (str): 'reference'
             value (dict): dictionary of reference metadata.
         """
-        # Skip validation if requested
-        if _skip_validation:
-            return True
-
-        if isvalid_reference and 'doi' in value:
+        if isvalid_reference and 'doi' in value and not self._skip_validation:
             try:
                 ref = habanero.Crossref().works(ids=value['doi'])['message']
             except (HTTPError, habanero.RequestError):
@@ -269,11 +288,7 @@ class OurValidator(Validator):
             field (str): 'author'
             value (dict): dictionary of author metadata.
         """
-        # Skip validation if requested
-        if _skip_validation:
-            return True
-
-        if isvalid_orcid and 'ORCID' in value:
+        if isvalid_orcid and 'ORCID' in value and not self._skip_validation:
             try:
                 res = orcid_api.search_public('orcid:' + value['ORCID'])
             except ConnectionError:

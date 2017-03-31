@@ -346,3 +346,46 @@ class TestValidator(object):
         v = OurValidator(unit_schema)
         v.validate({quantity: {'units': 'candela*ampere'}})
         assert v.errors[quantity][0] == 'incompatible units; should be consistent with {}'.format(unit)
+
+    @pytest.mark.parametrize('properties', ['testfile_bad.yaml'], indirect=['properties'])
+    def test_disable_validation(self, properties):
+        """Check if bad testfile loads correctly.
+        """
+        # Should get expected errors
+        v = OurValidator(schema)
+        assert v.validate(properties) == False
+        assert all(e in v.errors['reference'] for e in
+                   ['journal does not match: International Journal of Hydrogen Energy',
+                   'year should be 2007',
+                   'Missing author: N CHAUMEIX',
+                   'Missing author: S PICHON',
+                   'Missing author: F LAFOSSE',
+                   'Missing author: C PAILLARD',
+                   'Extra author(s) given: A. Author']
+                   )
+        assert (v.errors['reference'][-1]['authors'][0][0][0] ==  'Name and '
+                'ORCID do not match. Name supplied: A. Author. Name associated '
+                'with ORCID: Kyle Niemeyer'
+                )
+
+        # When disabling validation, should not get any errors
+        v = OurValidator(schema)
+        v.disable_validation()
+        assert v.validate(properties)
+
+        v = OurValidator(schema)
+        v.enable_validation()
+        v.validate(properties)
+        assert all(e in v.errors['reference'] for e in
+                   ['journal does not match: International Journal of Hydrogen Energy',
+                   'year should be 2007',
+                   'Missing author: N CHAUMEIX',
+                   'Missing author: S PICHON',
+                   'Missing author: F LAFOSSE',
+                   'Missing author: C PAILLARD',
+                   'Extra author(s) given: A. Author']
+                   )
+        assert (v.errors['reference'][-1]['authors'][0][0][0] ==  'Name and '
+                'ORCID do not match. Name supplied: A. Author. Name associated '
+                'with ORCID: Kyle Niemeyer'
+                )
